@@ -1,0 +1,89 @@
+#
+# Build
+#
+
+set build_components {
+  core init timer app/phantom_vm
+}
+
+build $build_components
+
+create_boot_directory
+
+# import_from_depot [depot_user]/src/[base_src] \
+#                   [depot_user]/pkg/terminal \
+#                   [depot_user]/src/init \
+#                   [depot_user]/src/posix \
+#                   [depot_user]/src/vfs \
+#                   [depot_user]/src/fs_rom
+
+#
+# Generate config
+#
+
+ set config {
+ <config verbose="yes" ld_verbose="yes">
+   <parent-provides>
+      <service name="ROM"/>
+      <service name="LOG"/>
+      <service name="RM"/>
+      <service name="CPU"/>
+      <service name="PD"/>
+      <service name="IRQ"/>
+      <service name="IO_PORT"/>
+      <service name="IO_MEM"/>
+   </parent-provides>
+   <default-route>
+      <any-service> <parent/> <any-child/> </any-service>
+   </default-route>
+   <default caps="300"/>
+
+
+	<start name="timer">
+		<resource name="RAM" quantum="2M" />
+		<provides> <service name="Timer" /> </provides>
+	</start>
+
+   <start name="vmonly" caps="500">
+     <resource name="RAM" quantum="500M"/>
+     <config verbose="yes" ld_verbose="yes">
+       <libc stdout="/dev/log" stderr="/dev/log" />
+        <vfs>
+          <dir name="dev"> <log/> </dir>
+          <dir name="pcode">
+            <dir name="plib">
+              <dir name="bin">
+                <tar name="phantom_bins.tar" />
+              </dir>
+            </dir>
+          </dir>
+
+            <tar name="phantom_bins.tar" />
+        </vfs>
+     </config>
+   </start>
+ </config>}
+ install_config $config
+
+#
+# Boot image
+#
+
+set boot_modules {
+  core init ld.lib.so
+  libc.lib.so timer
+  vfs.lib.so
+  libm.lib.so
+  posix.lib.so
+  vmonly
+  phantom_bins.tar
+}
+build_boot_image $boot_modules
+
+#
+# QEMU
+#
+
+append qemu_args " -nographic "
+append qemu_args " -m 1024 "
+run_genode_until forever

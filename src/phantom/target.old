@@ -1,0 +1,18 @@
+# TARGET = vmonly
+# # PHANTOM_DIR := $(call select_from_ports,phantom)/src/app/phantom
+# LIBS   += libc posix
+
+# export PHANTOM_HOME=$(call select_from_ports,phantom)/src/app/phantom
+
+# export INCLUDES
+
+# include $(call select_from_ports,phantom)/src/app/phantom/Makefile
+
+TARGET = $(call select_from_ports,phantom)/src/app/phantom
+
+GNU_BUILD_MK := $(call select_from_repositories,mk/gnu_build.mk)
+PKG_DIR ?= $(call select_from_ports,phantom)/src/app/phantom
+
+export PHANTOM_HOME=$(call select_from_ports,phantom)/src/app/phantom
+
+include $(GNU_BUILD_MK)
