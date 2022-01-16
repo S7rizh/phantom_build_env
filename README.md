@@ -10,31 +10,68 @@ Repository structure:
 
 ## Setting up Docker container
 
-Genode provides development container that is used to build the system. This container can be either pulled from the Docker Hub (`sgmakarov/genode-toolchain`) or built manually using corresponding tool (https://github.com/skalk/genode-devel-docker).
+Genode development team provides a convinient tool that can import or build a container that will have an installed Genode toolchain. Phantom can be built either using the development container or using the virtual machine with manually built toolchain. However, we suggest to use the container.
 
 ```bash
-git clone git@github.com:S7rizh/phantomuserland.git
+git clone git@github.com:skalk/genode-devel-docker.git
+cd genode-devel-docker
 
-git clone git@github.com:genodelabs/genode.git
-git checkout 21.05
+./docker import SUDO=sudo
 
-sudo docker run --name genode_phantom -it -v $(pwd):$(pwd) sgmakarov/genode-toolchain
+# Or you can build the container on your machine using the following command
+# ./docker build SUDO=sudo
+``` 
+
+## Starting the container
+
+```bash
+#
+# Starting the container
+#
+
+./docker run SUDO=sudo DOCKER_CONTAINER_ARGS=" --network host "
+
+#
+# Go to the working directory
+#
+
+cd <PATH_TO_DIR>
 ```
 
-## Genode initial setup
+> `--network host` argument is used to avoid the process of setting up the network for debugging
 
-Creating soft links to run and port files and copying files with build recipes
+## Initial setup
+
+This section contains commands that would prepare the environment to build Phantom OS. 
+
+> Following commands should be executed inside the container!
 
 ```bash
-cd <path_to_dir>
+
+#
+# Cloning repositories 
+#
+
+git clone git@github.com:S7rizh/phantom_build_env.git
+git clone git@github.com:S7rizh/phantomuserland.git
+git clone git@github.com:genodelabs/genode.git
+
+cd genode
+git checkout 21.11
+
+#
+# Creating soft links to run and port files and copying files with build recipes
+#
+
+cd ../
 cp -R $(pwd)/src/* genode/repos/ports/src/app/
 ln -s $(pwd)/run/* genode/repos/ports/run/
 ln -s $(pwd)/ports/* genode/repos/ports/ports/
-```
 
-Setting up Genode
+#
+# Setting up Genode
+#
 
-```bash
 cd ./genode/
 
 # Creating build directory
@@ -46,24 +83,95 @@ ln -s $(pwd)/../src/phantom/phantom_bins.tar build/x86_64/bin
 
 # Preparing port of Phantom OS and then substituting the directory with soft link
 ./tool/ports/prepare_port phantom CHECK_HASH=no
-rm -r contrib/phantom-7b5692dcbe87fc7e4fb528e33c5522f8f832c56d/src/app/phantom/
+rm -rf contrib/phantom-7b5692dcbe87fc7e4fb528e33c5522f8f832c56d/src/app/phantom/
 ln -s $(pwd)/../phantomuserland contrib/phantom-7b5692dcbe87fc7e4fb528e33c5522f8f832c56d/src/app/phantom
 
 # Preparing other required ports
 ./tool/ports/prepare_port libc nova grub2 gdb stdcxx
 
-# Need to enable optional repositories in build.conf. Can be done manually or the premade build.conf file can be copied
-cp ../build.conf build/x86_64/etc/build.conf
+# Need to enable optional repositories in build.conf
+sed -i 's/#REPOSITORIES/REPOSITORIES/g' build/x86_64/etc/build.conf
+
 ```
 
 ## Build instructions
 
-Following command can be used to build Phantom:
+Following command can be used to build and run Phantom:
 
-`make -C build/x86_64 CC_OLEVEL=-O0 KERNEL=nova VERBOSE= run/phantom`
+`make -C build/x86_64 KERNEL=nova VERBOSE= run/phantom`
+
+## Debugging instructions
+
+Phantom can be debugged using the run script with gdb monitor. It will setup the server on port 5555 to which gdb can be attached. 
 
 Following command can be used to build Phantom with gdb monitor:
 
-`make -C build/x86_64 CC_OLEVEL=-O0 KERNEL=nova VERBOSE= run/phantom_debug`
+`make -C build/x86_64 KERNEL=nova VERBOSE= run/phantom_debug`
 
+> Important: on Genode 21.05 and 21.11 `CC_OLEVEL=-O0` option will cause the following error `Error: __cxa_pure_virtual called, return addr is 0x12c139`
 
+> Also important: version of gdb should be exactly the same to the one defined in `/usr/local/genode/tool/current/bin`. Currently it is 10.2 for Genode 21.11
+
+The following command can be used to run gdb from inside the container
+
+```bash
+cd <genode_dir>/build/x86_64
+
+usr/local/genode/tool/21.05/bin/genode-x86-gdb debug/ld.lib.so -n
+-ex "target remote localhost:5555"
+-ex "b binary_ready_hook_for_gdb"
+-ex "c"
+-ex "delete 1"
+-ex "file debug/test-gdb_monitor"
+-ex "set solib-search-path debug"
+-ex "sharedlibrary"
+```
+
+Also, VS Code's Native Debug extension can be used. It is suggested to open genode directory as a project folder. The following configuration can be added to `launch.json`
+
+```json
+{
+  "type": "gdb",
+  "gdbpath": "<GDB_PATH>/bin/gdb",
+  "request": "attach",
+  "printCalls": true,
+  "name": "Native debug: Attach to gdb monitor",
+  "executable": "./debug/ld.lib.so",
+  "target": "localhost:5555",
+  "remote": true,
+  "cwd": "<PATH_TO_GENODE_REPOSITORY>/build/x86_64",
+  "valuesFormatting": "parseText",
+  "autorun": [
+    "b binary_ready_hook_for_gdb",
+    "c",
+    "delete 1",
+    "cd build/x86_64/",
+    "file debug/isomem",
+    "set solib-search-path debug",
+    "b setup_adapters",
+    "sharedlibrary",
+    "add-symbol-file debug/isomem -o 0x1000000",
+    "add-symbol-file debug/ld.lib.so -o 0x30000",
+    "add-symbol-file debug/gdbserver_platform-nova.lib.so -o 0x10d0000",
+    "add-symbol-file debug/libc.lib.so -o 0x10e2c000",
+    "add-symbol-file debug/vfs.lib.so -o 0x10d87000",
+    "add-symbol-file debug/libm.lib.so -o 0x10d45000",
+    "add-symbol-file debug/stdcxx.lib.so -o 0x10f9000",
+    "add-symbol-file debug/vfs_pipe.lib.so -o 0x10d26000",
+  ]
+}
+
+``` 
+
+Note that adresses for `add-symbol-file` commands might be different for diffent machines. When debug scenario is started it outputs addresses of binaries. Example output looks as follows:
+
+```
+[init -> gdb_monitor]   0x40000000 .. 0x4fffffff: stack area
+[init -> gdb_monitor]   0x30000 .. 0x14dfff: ld.lib.so
+[init -> gdb_monitor]   0x10d0000 .. 0x10f8fff: gdbserver_platform.lib.so
+[init -> gdb_monitor]   0x10e2c000 .. 0x10ffffff: libc.lib.so
+[init -> gdb_monitor]   0x10d87000 .. 0x10e2bfff: vfs.lib.so
+[init -> gdb_monitor]   0x10d45000 .. 0x10d86fff: libm.lib.so
+[init -> gdb_monitor]   0x10f9000 .. 0x12b9fff: stdcxx.lib.so
+[init -> gdb_monitor]   0x10d26000 .. 0x10d3cfff: vfs_pipe.lib.so
+```

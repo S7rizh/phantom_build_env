@@ -71,7 +71,7 @@ create_boot_directory
 # Generate config
 #
 append config {
-<config>
+<config verbose="yes">
 	<parent-provides>
 		<service name="ROM"/>
 		<service name="RAM"/>
@@ -123,15 +123,6 @@ append_if [expr !$use_linux] config {
 	</start>
 }
 
-append_if $use_linux config {
-	<start name="lx_block0" ld="no">
-		<binary name="lx_block"/>
-		<resource name="RAM" quantum="2G"/>
-		<provides><service name="Block"/></provides>
-		<config file="block0.raw" block_size="512" writeable="yes"/>
-	</start>
-}
-
 append config {
 	<start name="part_block0">
 		<binary name="part_block"/>
@@ -166,9 +157,8 @@ append config {
 			<report partitions="yes"/>
 			<policy label="block_tester1 -> " partition="1" writeable="yes"/>
 			<policy label="test-part1 -> " partition="2" writeable="yes" />
-			<policy label="gdb_monitor -> " partition="2" writeable="yes"/>
 			<policy label="isomem -> " partition="2" writeable="yes"/>
-			<policy label="gdb_monitor -> °è?@ -> " partition="2" writeable="yes"/>
+			<policy label_prefix="gdb_monitor" partition="2" writeable="yes"/>
 			
 		</config>
 	</start>
@@ -186,12 +176,11 @@ append config {
 		</config>
 	</start>
 
-   <start name="gdb_monitor" caps="500">
+   <start name="gdb_monitor" caps="3000">
 		<resource name="RAM" quantum="800M"/>
 		<config verbose="yes" ld_verbose="yes">
 			<target name="isomem">
 				<config>
-					<libc stdout="/dev/log" stderr="/dev/log" />
 					<vfs>
 						<dir name="dev"> <log/> </dir>
 						<dir name="pcode">
@@ -204,15 +193,26 @@ append config {
 
 						<tar name="phantom_bins.tar" />
 					</vfs>
+					<libc stdout="/dev/log" stderr="/dev/log" verbose="yes">
+						<pthread verbose="yes" />
+					</libc>
 				</config>
+				<route>
+					<service name="Block"><child name="part_block1"/></service>
+					<any-service> <parent/> <any-child /> </any-service>
+				</route>
 			</target>
 
-			<preserve name="RAM" quantum="100M"/>
+			<preserve name="RAM" quantum="500M"/>
 			<vfs>
-				<dir name="dev"> <log/> <terminal/> </dir>
+				<dir name="dev"> 
+					<log/>
+					<terminal raw="yes"/>
+					<inline name="rtc">2021-01-01 00:01</inline>
+				</dir>
 				<dir name="pipe"> <pipe/> </dir>
 			</vfs>
-			<libc stdout="/dev/log" stderr="/dev/log" pipe="/pipe"/>
+			<libc stdout="/dev/log" stderr="/dev/log" pipe="/pipe" rtc="/dev/rtc"/>
 		</config>
 		<route>
 			<service name="Block"><child name="part_block1"/></service>

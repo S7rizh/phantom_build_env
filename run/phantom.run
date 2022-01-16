@@ -85,6 +85,7 @@ append config {
 	</default-route>
 
 	<default caps="100"/>
+
 	<start name="timer">
 		<resource name="RAM" quantum="1M"/>
 		<provides><service name="Timer"/></provides>
@@ -169,8 +170,11 @@ append config {
 append config {
    <start name="isomem" caps="500">
      <resource name="RAM" quantum="500M"/>
+
      <config verbose="yes" ld_verbose="yes">
-       <libc stdout="/dev/log" stderr="/dev/log" />
+       <libc stdout="/dev/log" stderr="/dev/log">
+			<pthread verbose="yes" />
+	   </libc>
         <vfs>
           <dir name="dev"> <log/> </dir>
           <dir name="pcode">
@@ -183,6 +187,8 @@ append config {
 
             <tar name="phantom_bins.tar" />
         </vfs>
+
+
      </config>
 		<route>
 			<service name="Block"><child name="part_block1"/></service>
@@ -236,6 +242,10 @@ build_boot_image $boot_modules
 #
 # QEMU
 #
+
+# Debugging with qemu gdb stub
+# append qemu_args " -s -S "
+append qemu_args " -smp threads=1 "
 
 append qemu_args " -nographic -m 1024 -nographic"
 
