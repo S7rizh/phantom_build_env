@@ -168,33 +168,33 @@ append config {
 }
 
 append config {
-   <start name="isomem" caps="500">
-     <resource name="RAM" quantum="500M"/>
+	<start name="isomem" caps="2000">
+		<resource name="RAM" quantum="700M"/>
 
-     <config verbose="yes" ld_verbose="yes">
-       <libc stdout="/dev/log" stderr="/dev/log">
-			<pthread verbose="yes" />
-	   </libc>
-        <vfs>
-          <dir name="dev"> <log/> </dir>
-          <dir name="pcode">
-            <dir name="plib">
-              <dir name="bin">
-                <tar name="phantom_bins.tar" />
-              </dir>
-            </dir>
-          </dir>
+		<config verbose="yes" ld_verbose="yes">
+			<vfs>
+				<dir name="dev"> <log/> </dir>
+				<dir name="pcode">
+				<dir name="plib">
+					<dir name="bin">
+					<tar name="phantom_bins.tar" />
+					</dir>
+				</dir>
+				</dir>
 
-            <tar name="phantom_bins.tar" />
-        </vfs>
+				<tar name="phantom_bins.tar" />
+			</vfs>
 
+			<libc stdout="/dev/log" stderr="/dev/log">
+				<pthread verbose="yes" />
+			</libc>
 
-     </config>
+		</config>
 		<route>
 			<service name="Block"><child name="part_block1"/></service>
 			<any-service> <parent/> <any-child /> </any-service>
 		</route>
-   </start>
+	</start>
 }
 
 append config {
@@ -245,7 +245,7 @@ build_boot_image $boot_modules
 
 # Debugging with qemu gdb stub
 # append qemu_args " -s -S "
-append qemu_args " -smp threads=1 "
+# append qemu_args " -smp threads=1 "
 
 append qemu_args " -nographic -m 1024 -nographic"
 
