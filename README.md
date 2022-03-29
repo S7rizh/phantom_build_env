@@ -8,12 +8,37 @@ Repository structure:
 - `/run` folder containing .run scenarios
 - `/ports` folder containing .port and .hash
 
+## Clone repositories
+
+
+```bash
+#
+# Cloning repositories 
+#
+
+git clone git@github.com:S7rizh/phantom_build_env.git
+
+# this repository is supposed to be used as a working dir
+cd phantom_build_env
+
+# Repository with Genode build container wrapper
+git clone git@github.com:skalk/genode-devel-docker.git
+# Repostory with Phantom OS port
+git clone git@github.com:S7rizh/phantomuserland.git
+# Repostory with Genode
+git clone git@github.com:genodelabs/genode.git
+
+cd genode
+git checkout 21.11
+
+cd ..
+```
+
 ## Setting up Docker container
 
 Genode development team provides a convinient tool that can import or build a container that will have an installed Genode toolchain. Phantom can be built either using the development container or using the virtual machine with manually built toolchain. However, we suggest to use the container.
 
 ```bash
-git clone git@github.com:skalk/genode-devel-docker.git
 cd genode-devel-docker
 
 ./docker import SUDO=sudo
@@ -49,26 +74,6 @@ This section contains commands that would prepare the environment to build Phant
 ```bash
 
 #
-# Cloning repositories 
-#
-
-git clone git@github.com:S7rizh/phantom_build_env.git
-git clone git@github.com:S7rizh/phantomuserland.git
-git clone git@github.com:genodelabs/genode.git
-
-cd genode
-git checkout 21.11
-
-#
-# Creating soft links to run and port files and copying files with build recipes
-#
-
-cd ../
-cp -R $(pwd)/src/* genode/repos/ports/src/app/
-ln -s $(pwd)/run/* genode/repos/ports/run/
-ln -s $(pwd)/ports/* genode/repos/ports/ports/
-
-#
 # Setting up Genode
 #
 
@@ -76,15 +81,6 @@ cd ./genode/
 
 # Creating build directory
 ./tool/create_builddir x86_64
-
-# Creating soft link to resources required in runtime
-mkdir -p build/x86_64/bin
-ln -s $(pwd)/../src/phantom/phantom_bins.tar build/x86_64/bin
-
-# Preparing port of Phantom OS and then substituting the directory with soft link
-./tool/ports/prepare_port phantom CHECK_HASH=no
-rm -rf contrib/phantom-7b5692dcbe87fc7e4fb528e33c5522f8f832c56d/src/app/phantom/
-ln -s $(pwd)/../phantomuserland contrib/phantom-7b5692dcbe87fc7e4fb528e33c5522f8f832c56d/src/app/phantom
 
 # Preparing other required ports
 ./tool/ports/prepare_port libc nova grub2 gdb stdcxx
@@ -94,7 +90,38 @@ sed -i 's/#REPOSITORIES/REPOSITORIES/g' build/x86_64/etc/build.conf
 
 ```
 
-## Build instructions
+## Linking files related to Phantom to Genode repo
+
+```bash
+#
+# Creating soft links to run and port files and copying files with build recipes
+#
+
+cd ../
+cp -as "$(pwd)/src/phantom" genode/repos/ports/src/app/
+cp -as "$(pwd)/src/phantom_env" genode/repos/ports/src/app/
+cp -as "$(pwd)/src/phantom_vm" genode/repos/ports/src/app/
+ln -s $(pwd)/run/* genode/repos/ports/run/
+ln -s $(pwd)/ports/* genode/repos/ports/ports/
+
+
+# Pretending that we prepared the port of Phantom
+mkdir -p genode/contrib/phantom-7b5692dcbe87fc7e4fb528e33c5522f8f832c56d/src/app
+echo 7b5692dcbe87fc7e4fb528e33c5522f8f832c56d > genode/contrib/phantom-7b5692dcbe87fc7e4fb528e33c5522f8f832c56d/phantom.hash
+
+# Soft link directory with the sources
+ln -s $(pwd)/phantomuserland genode/contrib/phantom-7b5692dcbe87fc7e4fb528e33c5522f8f832c56d/src/app/phantom
+
+
+# Creating soft link to resources required in runtime
+mkdir -p genode/build/x86_64/bin
+ln -s $(pwd)/src/phantom/phantom_bins.tar genode/build/x86_64/bin
+
+# Going back to Genode dir
+cd ./genode
+```
+
+## Building and running Phantom OS
 
 Following command can be used to build and run Phantom:
 

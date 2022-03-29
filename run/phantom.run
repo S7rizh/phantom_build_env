@@ -34,7 +34,6 @@ set build_components {
 	server/lx_block
 	app/block_tester
 	server/part_block
-	test/block/client
 }
 
 source ${genode_dir}/repos/base/run/platform_drv.inc
