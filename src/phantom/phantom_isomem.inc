@@ -7,7 +7,13 @@ SRC_ISOMEM = phantom/isomem/khash.c \
             phantom/isomem/genode_unsorted.c \
             phantom/isomem/unix_hal.c \
             phantom/isomem/temp_loader_misc.c \
+            phantom/isomem/test_video.c \
+            phantom/isomem/test_rectangles.c \
+            phantom/isomem/test_ports.c \
             phantom/isomem/test_mem.c \
+            phantom/isomem/test_threads.c \
+            phantom/isomem/test_dpc.c \
+            phantom/isomem/test_timed_call.c \
             phantom/isomem/hexdump.c \
             phantom/isomem/genode_credentials.c \
             phantom/isomem/genode_timer.c \
