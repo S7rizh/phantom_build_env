@@ -29,7 +29,7 @@ git clone git@github.com:S7rizh/phantomuserland.git
 git clone git@github.com:genodelabs/genode.git
 
 cd genode
-git checkout 21.11
+git checkout 22.05
 
 cd ..
 ```

@@ -1,5 +1,5 @@
 TARGET = isomem
-LIBS   += posix cxx vfs
+LIBS   += base posix cxx vfs
 
 # LIBS += ld-sel4
 
@@ -164,3 +164,5 @@ CC_C_OPT += -include $(PHANTOM_HOME)/include/kernel/config.h
 #   -include $(realpath $(PHANTOM_HOME))/include/kernel/config.h \
 #   -include $(realpath $(PHANTOM_HOME))/include/$(ARCH)/arch/arch-config.h \
 #   -include $(realpath $(PHANTOM_HOME))/include/$(ARCH)/arch/board-$(BOARD)-config.h 
+
+CC_CXX_WARN_STRICT =
