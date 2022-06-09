@@ -125,7 +125,11 @@ cd ./genode
 
 Following command can be used to build and run Phantom:
 
-`make -C build/x86_64 KERNEL=nova VERBOSE= run/phantom`
+`make -C build/x86_64 KERNEL=nova BOARD=pc VERBOSE= run/phantom`
+
+To run only tests the following command should be used:
+
+`make -C build/x86_64/ KERNEL=nova BOARD=pc VERBOSE= PHANTOM_TESTS_ONLY=1 run/phantom`
 
 ## Debugging instructions
 

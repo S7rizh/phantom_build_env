@@ -14,6 +14,8 @@ SRC_ISOMEM = phantom/isomem/khash.c \
             phantom/isomem/test_threads.c \
             phantom/isomem/test_dpc.c \
             phantom/isomem/test_timed_call.c \
+            phantom/isomem/test_ps2_mouse.c \
+            phantom/isomem/test_vm_map.c \
             phantom/isomem/hexdump.c \
             phantom/isomem/genode_credentials.c \
             phantom/isomem/genode_timer.c \
