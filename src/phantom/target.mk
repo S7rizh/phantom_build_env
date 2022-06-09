@@ -150,6 +150,12 @@ CC_OPT += -DKERNEL
 CC_OPT += -DPHANTOM_GENODE
 CC_OPT += -DNO_NETWORK
 
+# Checking if we want to run only tests
+
+ifdef PHANTOM_TESTS_ONLY
+CC_C_OPT += -DPHANTOM_TESTS_ONLY
+endif
+
 # Workaround
 # phantom/libfreetype/afangles.c
 # CC_OPT += -D_JBLEN=32
