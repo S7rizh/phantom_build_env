@@ -117,6 +117,9 @@ ln -s $(pwd)/phantomuserland genode/contrib/phantom-7b5692dcbe87fc7e4fb528e33c55
 mkdir -p genode/build/x86_64/bin
 ln -s $(pwd)/src/phantom/phantom_bins.tar genode/build/x86_64/bin
 
+# Link an empty phantom disk image to bin folder
+ln -s $(pwd)/phantomuserland/run/img/phantom.superblock genode/build/x86_64/bin/phantom.superblock
+
 # Going back to Genode dir
 cd ./genode
 ```

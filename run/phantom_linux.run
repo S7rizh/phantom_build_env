@@ -1,4 +1,4 @@
-assert_spec x86
+# assert_spec x86
 # assert_spec nova
 
 # Can be used for debugging disk operations
@@ -34,7 +34,6 @@ set build_components {
 	server/lx_block
 	app/block_tester
 	server/part_block
-	test/block/client
 }
 
 source ${genode_dir}/repos/base/run/platform_drv.inc
@@ -53,10 +52,10 @@ proc create_disk_image {number} {
 	catch { exec $dd if=/dev/zero of=bin/block$number.raw bs=1M count=0 seek=2048 }
 
 	if { $number == 0 } {
-		exec echo -e "2048 2097151 - -\n2099200 2095070 - -" | $sfdisk -f bin/block$number.raw
+		exec -ignorestderr echo -e "2048 2097151 - -\n2099200 2095070 - -" | $sfdisk -f bin/block$number.raw
 	} else {
-		exec $sgdisk --clear bin/block$number.raw
-		exec $sgdisk -n1:2048:2099199 -n2:2099200:4194270 bin/block$number.raw
+		exec -ignorestderr $sgdisk --clear bin/block$number.raw
+		exec -ignorestderr $sgdisk -n1:2048:2099199 -n2:2099200:4194270 bin/block$number.raw
 	}
 }
 
@@ -105,7 +104,6 @@ append config {
    <start name="isomem" caps="500">
      <resource name="RAM" quantum="500M"/>
      <config verbose="yes" ld_verbose="yes">
-       <libc stdout="/dev/log" stderr="/dev/log" />
         <vfs>
           <dir name="dev"> <log/> </dir>
           <dir name="pcode">
@@ -150,10 +148,8 @@ create_disk_image 1
 
 set boot_modules {
   core init ld.lib.so
-  libc.lib.so timer
+  timer
   vfs.lib.so
-  libm.lib.so
-  posix.lib.so
   isomem
   phantom_bins.tar
 	ahci_drv block_tester

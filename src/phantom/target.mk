@@ -1,5 +1,6 @@
 TARGET = isomem
-LIBS   += base posix cxx vfs
+# LIBS   += base posix cxx vfs
+LIBS   += base vfs
 
 # LIBS += ld-sel4
 
@@ -21,8 +22,8 @@ include $(REP_DIR)/src/app/phantom/phantom_gl.inc
 include $(REP_DIR)/src/app/phantom/phantom_libwin.inc
 # phantom/libfreetype
 include $(REP_DIR)/src/app/phantom/phantom_libfreetype.inc
-# phantom/libc
-# include $(REP_DIR)/src/app/phantom/phantom_libc.inc
+# libc calls implementation from phantom/isomem/contrib
+include $(REP_DIR)/src/app/phantom/phantom_libc.inc
 
 # Phantom Genode Env
 

@@ -53,10 +53,10 @@ proc create_disk_image {number} {
 
 
 	# Creating clear partition table
-	exec $sgdisk --clear bin/block$number.raw
+	exec -ignorestderr $sgdisk --clear bin/block$number.raw
 	# Initializing partition from 4kB to 500MB-4kB
 	# exec $sgdisk -n1:4096:524270592 bin/block$number.raw
-	exec $sgdisk -n1:2048:4194270 bin/block$number.raw
+	exec -ignorestderr $sgdisk -n1:2048:4194270 bin/block$number.raw
 
 
 	catch {
@@ -171,9 +171,6 @@ append config {
 				<tar name="phantom_bins.tar" />
 			</vfs>
 
-			<libc stdout="/dev/log" stderr="/dev/log">
-				<pthread verbose="yes" />
-			</libc>
 
 		</config>
 		<route>
@@ -207,10 +204,8 @@ create_disk_image 1
 
 set boot_modules {
   core init ld.lib.so
-  libc.lib.so timer
+  timer
   vfs.lib.so
-  libm.lib.so
-  posix.lib.so
   isomem
   phantom_bins.tar
 	ahci_drv block_tester
