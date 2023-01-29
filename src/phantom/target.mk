@@ -105,16 +105,17 @@ export BOARD = amd64-pc
 export PHANTOM_GENODE = 1
 
 # libc includes. Have to be before Phantom includes
+# XXX : Need to find and fix collisions
 # XXX : Not really a good solution. Probably should fix
 
-LIBC_DIR = $(call select_from_ports,libc)
+# LIBC_DIR = $(call select_from_ports,libc)
 
-INC_DIR += $(LIBC_DIR)/include/libc \
-					 $(LIBC_DIR)/include/spec/x86_64/libc \
-					 $(LIBC_DIR)/include/spec/x86/libc \
-					 $(LIBC_DIR)/include/libc \
-					 $(LIBC_DIR)/include/spec/x86_64/libc \
-					 $(LIBC_DIR)/include/spec/x86/libc 
+# INC_DIR += $(LIBC_DIR)/include/libc \
+# 					 $(LIBC_DIR)/include/spec/x86_64/libc \
+# 					 $(LIBC_DIR)/include/spec/x86/libc \
+# 					 $(LIBC_DIR)/include/libc \
+# 					 $(LIBC_DIR)/include/spec/x86_64/libc \
+# 					 $(LIBC_DIR)/include/spec/x86/libc 
 
 
 # Includes from Phantom build system
@@ -123,7 +124,7 @@ INC_DIR += $(LIBC_DIR)/include/libc \
 INC_DIR += $(PRG_DIR)
 # TODO : check realpath
 INC_DIR += $(realpath $(PHANTOM_HOME))/include $(realpath $(PHANTOM_HOME))/include/$(ARCH) \
-	$(PHANTOM_HOME)/include/$(ARCH) $(PHANTOM_HOME)/include 
+	$(PHANTOM_HOME)/include/$(ARCH) $(PHANTOM_HOME)/include $(PHANTOM_HOME)/include/stub_libc
 
 # Phantom arch includes
 INC_DIR += $(realpath $(PHANTOM_HOME))/include $(realpath $(PHANTOM_HOME))/include/$(ARCH) \
@@ -132,15 +133,19 @@ INC_DIR += $(realpath $(PHANTOM_HOME))/include $(realpath $(PHANTOM_HOME))/inclu
 # GL
 INC_DIR += $(PHANTOM_HOME)/phantom/gl
 
+
 # Debug
 
 CC_C_OPT += -g
 # CC_C_OPT += -DDEBUG=1
 
+# Avoid implicit declarations
+CC_C_OPT += -Werror=implicit-function-declaration
+
 
 # Flags and macros from Phantom build system
 
-CC_C_OPT += -std=gnu89
+CC_C_OPT += -std=c99
 CC_C_OPT += -DKERNEL
 CC_C_OPT += -DPHANTOM_GENODE
 CC_C_OPT += -DNO_NETWORK

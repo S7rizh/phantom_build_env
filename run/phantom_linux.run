@@ -132,7 +132,7 @@ append config {
 install_config $config
 
 create_disk_image 0
-create_disk_image 1
+# create_disk_image 1
 
 
 # import_from_depot [depot_user]/src/[base_src] \
