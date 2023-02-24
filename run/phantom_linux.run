@@ -32,9 +32,9 @@ set build_components {
   core init timer app/phantom
 	drivers/ahci
 	server/lx_block
-	app/block_tester
-	server/part_block
 }
+	# server/vfs
+	# server/fs_rom
 
 source ${genode_dir}/repos/base/run/platform_drv.inc
 append_platform_drv_build_components
@@ -44,18 +44,24 @@ build $build_components
 #
 # disk0 is MBR, disk1 is GPT
 #
-proc create_disk_image {number} {
+proc create_disk_image {number} { 
 	global dd
 	global sfdisk
 	global sgdisk
 
 	catch { exec $dd if=/dev/zero of=bin/block$number.raw bs=1M count=0 seek=2048 }
 
-	if { $number == 0 } {
-		exec -ignorestderr echo -e "2048 2097151 - -\n2099200 2095070 - -" | $sfdisk -f bin/block$number.raw
-	} else {
-		exec -ignorestderr $sgdisk --clear bin/block$number.raw
-		exec -ignorestderr $sgdisk -n1:2048:2099199 -n2:2099200:4194270 bin/block$number.raw
+
+	# Creating clear partition table
+	exec -ignorestderr $sgdisk --clear bin/block$number.raw
+	# Initializing partition from 4kB to 500MB-4kB
+	# exec $sgdisk -n1:4096:524270592 bin/block$number.raw
+	exec -ignorestderr $sgdisk -n1:2048:4194270 bin/block$number.raw
+
+
+	catch {
+		# Writing image at 2048 * 512 + 16 * 4096 (start_of_partition + superblock_position)
+		exec $dd conv=nocreat conv=notrunc bs=512 count=8 seek=2176 if=bin/phantom.superblock of=bin/block$number.raw
 	}
 }
 
@@ -96,29 +102,37 @@ append_if $use_linux config {
 		<binary name="lx_block"/>
 		<resource name="RAM" quantum="2G"/>
 		<provides><service name="Block"/></provides>
-		<config file="block0.raw" block_size="512" writeable="yes"/>
+		<config ld_verbose="yes" verbose="yes" file="block0.raw" block_size="512" writeable="yes"/>
 	</start>
 }
+
+# append_if $use_linux config {
+# 	<start name="vfs" caps="200">
+# 		<resource name="RAM" quantum="12M" />
+# 		<provides><service name="File_system"/></provides>
+# 		<config>
+# 			<vfs> 
+# 				<tar name="phantom_bins.tar" />
+# 			</vfs>
+# 			<policy label_prefix="fs_rom" root="/" writeable="no"/>
+# 		</config>
+# 	</start>
+# 	<start name="fs_rom">
+# 		<resource name="RAM" quantum="2M"/>
+# 		<provides><service name="ROM"/></provides>
+# 	</start>
+# }
+ 
+
 
 append config {
    <start name="isomem" caps="500">
      <resource name="RAM" quantum="500M"/>
      <config verbose="yes" ld_verbose="yes">
-        <vfs>
-          <dir name="dev"> <log/> </dir>
-          <dir name="pcode">
-            <dir name="plib">
-              <dir name="bin">
-                <tar name="phantom_bins.tar" />
-              </dir>
-            </dir>
-          </dir>
-
-            <tar name="phantom_bins.tar" />
-        </vfs>
      </config>
 		<route>
 			<service name="Block"><child name="lx_block0"/></service>
+			<service name="ROM" label_prefix="/"> <child name="fs_rom"/> </service>
 			<any-service> <parent/> <any-child /> </any-service>
 		</route>
    </start>
@@ -131,7 +145,7 @@ append config {
 
 install_config $config
 
-create_disk_image 0
+# create_disk_image 0
 # create_disk_image 1
 
 
@@ -152,9 +166,15 @@ set boot_modules {
   vfs.lib.so
   isomem
   phantom_bins.tar
-	ahci_drv block_tester
-	part_block
+
+  phantom_classes
+
 }
+  # vfs
+  # fs_rom
+
+  # ahci_drv block_tester
+  # part_block
 
 append_if $use_linux boot_modules {
 	block0.raw block1.raw lx_block
