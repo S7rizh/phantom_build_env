@@ -1,8 +1,6 @@
 assert_spec x86
 # assert_spec nova
 
-# Can be used for debugging disk operations
-set use_linux [have_spec linux]
 
 if {[get_cmd_switch --autopilot] && ![have_include "power_on/qemu"]} {
 	puts "\n Run script is not supported on this platform. \n";
@@ -19,10 +17,10 @@ set sgdisk [installed_command sgdisk]
 set drv0 "ahci_drv"
 set drv1 "ahci_drv"
 
-if { $use_linux } {
-	set drv0 "lx_block0"
-	set drv1 "lx_block1"
-}
+# if { $use_linux } {
+# 	set drv0 "lx_block0"
+# 	set drv1 "lx_block1"
+# }
 
 #
 # Build
@@ -32,6 +30,7 @@ set build_components {
   core init timer app/phantom
 	drivers/ahci
 	server/lx_block
+	server/report_rom
 	app/block_tester
 	server/part_block
 }
@@ -70,20 +69,30 @@ create_boot_directory
 #
 # Generate config
 #
+
+# <service name="ROM"/>
+# <service name="RAM"/>
+# <service name="IRQ"/>
+# <service name="IO_MEM"/>
+# <service name="IO_PORT"/>
+# <service name="CAP"/>
+# <service name="PD"/>
+# <service name="RM"/>
+# <service name="CPU"/>
+# <service name="LOG"/>
+# <service name="SIGNAL" />
+
 append config {
 <config>
 	<parent-provides>
 		<service name="ROM"/>
-		<service name="RAM"/>
 		<service name="IRQ"/>
 		<service name="IO_MEM"/>
 		<service name="IO_PORT"/>
-		<service name="CAP"/>
 		<service name="PD"/>
 		<service name="RM"/>
 		<service name="CPU"/>
 		<service name="LOG"/>
-		<service name="SIGNAL" />
 	</parent-provides>
 	<default-route>
 		<any-service> <parent/> <any-child/> </any-service>
@@ -103,18 +112,19 @@ append config {
 		<binary name="report_rom"/>
 		<resource name="RAM" quantum="1M"/>
 		<provides> <service name="Report"/> <service name="ROM"/> </provides>
-		<config verbose="yes"/>
+		<config verbose="yes" ld_verbose="yes"/>
 	</start>
 }
 
-append_if [expr !$use_linux] config {
+append config {
 	<start name="ahci_drv">
 		<resource name="RAM" quantum="10M" />
 		<provides><service name="Block" /></provides>
-		<config>
+		<config atapi="no" verbose="yes" ld_verbose="yes">
 			<report ports="yes"/>
 			<!-- CAUTION setting writeable! -->
-			<policy label_prefix="part_block0" device="0" writeable="yes"/>
+			<policy label_prefix="isomem" device="0" writeable="yes"/>
+			<!-- <policy label_prefix="part_block0" device="0" writeable="yes"/> -->
 			<!-- <policy label_prefix="part_block1" device="1" writeable="yes"/> -->
 		</config>
 		<route>
@@ -124,34 +134,25 @@ append_if [expr !$use_linux] config {
 	</start>
 }
 
-append_if $use_linux config {
-	<start name="lx_block0" ld="no">
-		<binary name="lx_block"/>
-		<resource name="RAM" quantum="2G"/>
-		<provides><service name="Block"/></provides>
-		<config file="block0.raw" block_size="512" writeable="yes"/>
-	</start>
-}
-
-append config {
-	<start name="part_block0">
-		<binary name="part_block"/>
-		<resource name="RAM" quantum="10M" />
-		<provides><service name="Block" /></provides>
-		<route>
-			<service name="Report"><child name="block_report_rom"/></service>}
-			append config "
-			<service name=\"Block\"><child name=\"$drv0\"/></service>"
-			append config {
-			<any-service><parent/><any-child/></any-service>
-		</route>
-		<config io_buffer="2M">
-			<report partitions="yes"/>
-			<policy label="test-part1 -> " partition="1" writeable="yes" />
-			<policy label="isomem -> " partition="1" writeable="yes"/>
-		</config>
-	</start>
-}
+# append config {
+# 	<start name="part_block0">
+# 		<binary name="part_block"/>
+# 		<resource name="RAM" quantum="10M" />
+# 		<provides><service name="Block" /></provides>
+# 		<route>
+# 			<service name="Report"><child name="block_report_rom"/></service>}
+# 			append config "
+# 			<service name=\"Block\"><child name=\"$drv0\"/></service>"
+# 			append config {
+# 			<any-service><parent/><any-child/></any-service>
+# 		</route>
+# 		<config io_buffer="2M">
+# 			<report partitions="yes"/>
+# 			<policy label="test-part1 -> " partition="1" writeable="yes" />
+# 			<policy label="isomem -> " partition="1" writeable="yes"/>
+# 		</config>
+# 	</start>
+# }
 
 append config {
 	<start name="isomem" caps="2000">
@@ -174,7 +175,7 @@ append config {
 
 		</config>
 		<route>
-			<service name="Block"><child name="part_block0"/></service>
+			<service name="Block"><child name="ahci_drv"/></service>
 			<any-service> <parent/> <any-child /> </any-service>
 		</route>
 	</start>
@@ -187,8 +188,8 @@ append config {
 
 install_config $config
 
-create_disk_image 0
-create_disk_image 1
+# create_disk_image 0
+# create_disk_image 1
 
 
 # import_from_depot [depot_user]/src/[base_src] \
@@ -207,14 +208,16 @@ set boot_modules {
   timer
   vfs.lib.so
   isomem
+  report_rom
   phantom_bins.tar
 	ahci_drv block_tester
 	part_block
+	phantom_classes
 }
 
-append_if $use_linux boot_modules {
-	block0.raw block1.raw lx_block
-}
+# append_if $use_linux boot_modules {
+# 	block0.raw block1.raw lx_block
+# }
 
 append_platform_drv_boot_modules
 
@@ -230,9 +233,13 @@ build_boot_image $boot_modules
 
 append qemu_args " -nographic -m 1024 -nographic"
 
+# append qemu_args " -drive id=disk,file=bin/block0.raw,format=raw,if=none \
+#                    -drive id=disk2,file=bin/block1.raw,format=raw,if=none \
+#                    -device ahci,id=ahci -device ide-hd,drive=disk,bus=ahci.0 \
+#                    -device ide-hd,drive=disk2,bus=ahci.1 -boot d"
+
 append qemu_args " -drive id=disk,file=bin/block0.raw,format=raw,if=none \
-                   -drive id=disk2,file=bin/block1.raw,format=raw,if=none \
                    -device ahci,id=ahci -device ide-hd,drive=disk,bus=ahci.0 \
-                   -device ide-hd,drive=disk2,bus=ahci.1 -boot d"
+                    -boot d"
 
 run_genode_until forever
