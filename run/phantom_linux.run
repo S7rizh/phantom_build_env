@@ -13,16 +13,9 @@ if {[get_cmd_switch --autopilot] && ![have_include "power_on/qemu"]} {
 # Check used commands
 #
 set dd     [installed_command dd]
-set sfdisk [installed_command sfdisk]
-set sgdisk [installed_command sgdisk]
 
-set drv0 "ahci_drv"
-set drv1 "ahci_drv"
-
-if { $use_linux } {
-	set drv0 "lx_block0"
-	set drv1 "lx_block1"
-}
+set drv0 "lx_block0"
+set drv1 "lx_block1"
 
 #
 # Build
@@ -36,34 +29,7 @@ set build_components {
 	# server/vfs
 	# server/fs_rom
 
-source ${genode_dir}/repos/base/run/platform_drv.inc
-append_platform_drv_build_components
-
 build $build_components
-
-#
-# disk0 is MBR, disk1 is GPT
-#
-proc create_disk_image {number} { 
-	global dd
-	global sfdisk
-	global sgdisk
-
-	catch { exec $dd if=/dev/zero of=bin/block$number.raw bs=1M count=0 seek=2048 }
-
-
-	# Creating clear partition table
-	exec -ignorestderr $sgdisk --clear bin/block$number.raw
-	# Initializing partition from 4kB to 500MB-4kB
-	# exec $sgdisk -n1:4096:524270592 bin/block$number.raw
-	exec -ignorestderr $sgdisk -n1:2048:4194270 bin/block$number.raw
-
-
-	catch {
-		# Writing image at 2048 * 512 + 16 * 4096 (start_of_partition + superblock_position)
-		exec $dd conv=nocreat conv=notrunc bs=512 count=8 seek=2176 if=bin/phantom.superblock of=bin/block$number.raw
-	}
-}
 
 create_boot_directory
 
@@ -95,7 +61,6 @@ append config {
 		<provides><service name="Timer"/></provides>
 	</start>}
 
-append_platform_drv_config
 
 append_if $use_linux config {
 	<start name="lx_block0" ld="no">
@@ -177,10 +142,8 @@ set boot_modules {
   # part_block
 
 append_if $use_linux boot_modules {
-	block0.raw block1.raw lx_block
+	block0.raw lx_block
 }
-
-append_platform_drv_boot_modules
 
 build_boot_image $boot_modules
 

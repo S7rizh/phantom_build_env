@@ -1,4 +1,4 @@
-assert_spec x86
+#assert_spec x86
 # assert_spec nova
 
 
@@ -8,63 +8,22 @@ if {[get_cmd_switch --autopilot] && ![have_include "power_on/qemu"]} {
 }
 
 #
-# Check used commands
-#
-set dd     [installed_command dd]
-set sfdisk [installed_command sfdisk]
-set sgdisk [installed_command sgdisk]
-
-set drv0 "ahci_drv"
-set drv1 "ahci_drv"
-
-# if { $use_linux } {
-# 	set drv0 "lx_block0"
-# 	set drv1 "lx_block1"
-# }
-
-#
 # Build
 #
 
-set build_components {
-  core init timer app/phantom
-	drivers/ahci
-	server/lx_block
-	server/report_rom
-	app/block_tester
-	server/part_block
-}
+create_boot_directory
 
-source ${genode_dir}/repos/base/run/platform_drv.inc
-append_platform_drv_build_components
+set build_components {
+	core init timer app/phantom
+	server/report_rom
+	drivers/platform
+	drivers/acpi
+	drivers/ahci
+	app/pci_decode
+}
 
 build $build_components
 
-#
-# disk0 is MBR, disk1 is GPT
-#
-proc create_disk_image {number} {
-	global dd
-	global sfdisk
-	global sgdisk
-
-	catch { exec $dd if=/dev/zero of=bin/block$number.raw bs=1M count=0 seek=2048 }
-
-
-	# Creating clear partition table
-	exec -ignorestderr $sgdisk --clear bin/block$number.raw
-	# Initializing partition from 4kB to 500MB-4kB
-	# exec $sgdisk -n1:4096:524270592 bin/block$number.raw
-	exec -ignorestderr $sgdisk -n1:2048:4194270 bin/block$number.raw
-
-
-	catch {
-		# Writing image at 2048 * 512 + 16 * 4096 (start_of_partition + superblock_position)
-		exec $dd conv=nocreat conv=notrunc bs=512 count=8 seek=2176 if=bin/phantom.superblock of=bin/block$number.raw
-	}
-}
-
-create_boot_directory
 
 #
 # Generate config
@@ -103,33 +62,89 @@ append config {
 	<start name="timer">
 		<resource name="RAM" quantum="1M"/>
 		<provides><service name="Timer"/></provides>
-	</start>}
-
-append_platform_drv_config
-
-append config {
-	<start name="block_report_rom">
-		<binary name="report_rom"/>
-		<resource name="RAM" quantum="1M"/>
-		<provides> <service name="Report"/> <service name="ROM"/> </provides>
-		<config verbose="yes" ld_verbose="yes"/>
 	</start>
 }
 
+
 append config {
+	<start name="report_rom">
+		<resource name="RAM" quantum="2M"/>
+		<provides> <service name="Report"/> <service name="ROM"/> </provides>
+		<config>
+			<policy label="pci_decode -> system"    report="acpi_drv -> acpi"/>
+			<policy label="platform_drv -> devices" report="pci_decode -> devices"/>
+		</config>
+	</start>
+
+	<start name="acpi_drv" caps="350">
+		<resource name="RAM" quantum="4M"/>
+		<route>
+			<service name="Report"> <child name="report_rom"/> </service>
+			<service name="IO_MEM"> <parent/> </service>
+			<service name="LOG">    <parent/> </service>
+			<service name="PD">     <parent/> </service>
+			<service name="RM">     <parent/> </service>
+			<service name="CPU">    <parent/> </service>
+			<service name="ROM">    <parent/> </service>
+		</route>
+	</start>
+
+	<start name="pci_decode" caps="350">
+		<resource name="RAM" quantum="2M"/>
+		<route>
+			<service name="Report">             <child name="report_rom"/> </service>
+			<service name="ROM" label="system"> <child name="report_rom"/> </service>
+			<service name="IO_MEM"> <parent/> </service>
+			<service name="LOG">    <parent/> </service>
+			<service name="PD">     <parent/> </service>
+			<service name="RM">     <parent/> </service>
+			<service name="CPU">    <parent/> </service>
+			<service name="ROM">    <parent/> </service>
+		</route>
+	</start>
+
+	<start name="platform_drv" caps="100" managing_system="yes">
+		<resource name="RAM" quantum="1M"/>
+		<provides>
+			<service name="Platform"/>
+		</provides>
+		<route>
+			<service name="ROM" label="devices"> <child name="report_rom"/> </service>
+			<service name="Report"> <child name="report_rom"/> </service>
+			<service name="IRQ">     <parent/> </service>
+			<service name="IO_MEM">  <parent/> </service>
+			<service name="IO_PORT"> <parent/> </service>
+			<service name="ROM">     <parent/> </service>
+			<service name="PD">      <parent/> </service>
+			<service name="CPU">     <parent/> </service>
+			<service name="LOG">     <parent/> </service>
+			<service name="Timer">   <child name="timer"/> </service>
+		</route>
+		<config>
+			<report devices="yes"/>
+			<policy label="ahci_drv -> "> <pci class="AHCI"/> </policy>
+		</config>
+	</start>
+
+	<start name="ahci_report_rom">
+		<binary name="report_rom"/>
+		<resource name="RAM" quantum="1M"/>
+		<provides> <service name="Report"/> <service name="ROM"/> </provides>
+		<config verbose="yes"/>
+	</start>
+
 	<start name="ahci_drv">
 		<resource name="RAM" quantum="10M" />
 		<provides><service name="Block" /></provides>
-		<config atapi="no" verbose="yes" ld_verbose="yes">
+		<config atapi="yes">
 			<report ports="yes"/>
-			<!-- CAUTION setting writeable! -->
-			<policy label_prefix="isomem" device="0" writeable="yes"/>
-			<!-- <policy label_prefix="part_block0" device="0" writeable="yes"/> -->
-			<!-- <policy label_prefix="part_block1" device="1" writeable="yes"/> -->
+			<policy label="isomem -> " device="0" writeable="yes" />
+			<!-- <policy label="test-ahci -> " device="0" writeable="yes" /> -->
+			<!-- <policy label="test-ahci-atapi -> " device="1" writeable="no" /> -->
 		</config>
 		<route>
-			<service name="Report"><child name="block_report_rom"/></service>
-			<any-service> <parent/> <any-child /> </any-service>
+			<service name="Report"> <child name="ahci_report_rom"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 	</start>
 }
@@ -188,9 +203,6 @@ append config {
 
 install_config $config
 
-# create_disk_image 0
-# create_disk_image 1
-
 
 # import_from_depot [depot_user]/src/[base_src] \
 #                   [depot_user]/pkg/terminal \
@@ -204,22 +216,16 @@ install_config $config
 #
 
 set boot_modules {
-  core init ld.lib.so
-  timer
-  vfs.lib.so
-  isomem
-  report_rom
-  phantom_bins.tar
-	ahci_drv block_tester
-	part_block
+	core init ld.lib.so
+	vfs.lib.so
+	timer
+	isomem
+	report_rom
+	pci_decode platform_drv report_rom acpi_drv
+	ahci_drv report_rom
+	phantom_bins.tar
 	phantom_classes
 }
-
-# append_if $use_linux boot_modules {
-# 	block0.raw block1.raw lx_block
-# }
-
-append_platform_drv_boot_modules
 
 build_boot_image $boot_modules
 
